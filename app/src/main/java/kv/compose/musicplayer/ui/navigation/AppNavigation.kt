@@ -24,7 +24,6 @@ fun AppNavigation() {
 
     Scaffold(
         bottomBar = {
-            if (currentRoute?.startsWith(Screen.Player.route) == true) {
                 NavigationBar {
                     NavigationBarItem(
                         icon = { Icon(Icons.Default.Menu, contentDescription = "Online Tracks") },
@@ -55,7 +54,7 @@ fun AppNavigation() {
                         }
                     )
                 }
-            }
+
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
