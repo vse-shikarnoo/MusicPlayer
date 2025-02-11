@@ -39,8 +39,16 @@ class OnlineTracksViewModel @Inject constructor(
     private fun loadChartTracks() {
         viewModelScope.launch {
             try {
-                val tracks = repository.getChartTracks() as Result.Success
-                _uiState.value = OnlineTracksUiState.Success(tracks.data)
+                _uiState.value = OnlineTracksUiState.Loading
+                when (val res = repository.getChartTracks()) {
+                    is Result.Error -> _uiState.value = OnlineTracksUiState.Error(res.message)
+                    Result.Loading -> {
+                        _uiState.value = OnlineTracksUiState.Loading
+                    }
+
+                    is Result.Success ->
+                        _uiState.value = OnlineTracksUiState.Success(res.data)
+                }
             } catch (e: Exception) {
                 _uiState.value = OnlineTracksUiState.Error(e.message ?: "Unknown error")
             }
@@ -51,8 +59,15 @@ class OnlineTracksViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _uiState.value = OnlineTracksUiState.Loading
-                val tracks = repository.searchTracks(query) as Result.Success
-                _uiState.value = OnlineTracksUiState.Success(tracks.data)
+                when (val res = repository.searchTracks(query)) {
+                    is Result.Error -> _uiState.value = OnlineTracksUiState.Error(res.message)
+                    Result.Loading -> {
+                        _uiState.value = OnlineTracksUiState.Loading
+                    }
+
+                    is Result.Success ->
+                        _uiState.value = OnlineTracksUiState.Success(res.data)
+                }
             } catch (e: Exception) {
                 _uiState.value = OnlineTracksUiState.Error(e.message ?: "Unknown error")
             }

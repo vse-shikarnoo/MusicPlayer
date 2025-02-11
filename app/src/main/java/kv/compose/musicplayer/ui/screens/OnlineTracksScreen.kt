@@ -1,6 +1,7 @@
 package kv.compose.musicplayer.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,12 +28,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import kv.compose.musicplayer.R
 import kv.compose.musicplayer.data.model.Album
 import kv.compose.musicplayer.data.model.Artist
 import kv.compose.musicplayer.data.model.Track
@@ -71,7 +76,9 @@ fun OnlineTracksScreen(
                 }
             )
 
-            is OnlineTracksUiState.Error -> ErrorMessage(state.message)
+            is OnlineTracksUiState.Error -> ErrorMessage(state.message){
+                viewModel.onSearchQueryChange(query = searchQuery)
+            }
         }
     }
 }
@@ -171,10 +178,16 @@ private fun TrackItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
-                model = track.album.coverMedium,
+                model = ImageRequest.Builder(
+                    androidx.compose.ui.platform.LocalContext.current
+                )
+                    .data(track.album.cover)
+                    .build(),
                 contentDescription = "Album cover",
                 modifier = Modifier.size(56.dp),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(R.drawable.baseline_music_note_24),
+                error = painterResource(R.drawable.baseline_music_note_24)
             )
 
             Column(
@@ -201,24 +214,31 @@ private fun TrackItem(
 private fun ErrorMessagePreview() {
     ErrorMessage(
         "Error"
-    )
+    ){}
 }
 
 @Composable
-private fun ErrorMessage(message: String) {
-    Box(
+private fun ErrorMessage(message: String, onRetry: () -> Unit) {
+    Column(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = message,
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyLarge
         )
+        Button(
+            modifier = Modifier.padding(top = 16.dp),
+            onClick = {onRetry()}
+        ) {
+            Text(text = "Retry")
+        }
     }
 }
 
-private val testTrack =Track(
+private val testTrack = Track(
     id = 1,
     title = "Test",
     artist = Artist(
