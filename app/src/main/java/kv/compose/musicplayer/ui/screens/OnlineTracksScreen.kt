@@ -58,7 +58,8 @@ fun OnlineTracksScreen(
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier
+        .fillMaxSize()) {
         SearchBar(
             query = searchQuery,
             onQueryChange = viewModel::onSearchQueryChange,
@@ -76,7 +77,7 @@ fun OnlineTracksScreen(
                 }
             )
 
-            is OnlineTracksUiState.Error -> ErrorMessage(state.message){
+            is OnlineTracksUiState.Error -> ErrorMessage(state.message) {
                 viewModel.onSearchQueryChange(query = searchQuery)
             }
         }
@@ -214,7 +215,7 @@ private fun TrackItem(
 private fun ErrorMessagePreview() {
     ErrorMessage(
         "Error"
-    ){}
+    ) {}
 }
 
 @Composable
@@ -231,7 +232,7 @@ private fun ErrorMessage(message: String, onRetry: () -> Unit) {
         )
         Button(
             modifier = Modifier.padding(top = 16.dp),
-            onClick = {onRetry()}
+            onClick = { onRetry() }
         ) {
             Text(text = "Retry")
         }
