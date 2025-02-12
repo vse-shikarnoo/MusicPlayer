@@ -34,6 +34,9 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+        <receiver
+            android:name=".service.MediaControlReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -1,20 +1,20 @@
 package kv.compose.musicplayer.service
 
-import android.annotation.SuppressLint
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Build
-import androidx.annotation.OptIn
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -31,7 +31,8 @@ import kv.compose.musicplayer.R
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MusicService: MediaSessionService() {
+class MusicService : MediaSessionService() {
+
     @Inject
     lateinit var player: ExoPlayer
 
@@ -42,6 +43,7 @@ class MusicService: MediaSessionService() {
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
     private var currentNotificationId = NOTIFICATION_ID
+    private var isForegroundService = false
 
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -50,6 +52,22 @@ class MusicService: MediaSessionService() {
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             updatePlaybackState()
+            if (isPlaying && !isForegroundService) {
+                startForeground(NOTIFICATION_ID, buildNotification("", "", null))
+                isForegroundService = true
+            }
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            when (playbackState) {
+                Player.STATE_ENDED -> {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    isForegroundService = false
+                }
+                Player.STATE_READY -> {
+                    updatePlaybackState()
+                }
+            }
         }
     }
 
@@ -63,6 +81,7 @@ class MusicService: MediaSessionService() {
 
         player.addListener(playerListener)
     }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     override fun onDestroy() {
@@ -84,6 +103,7 @@ class MusicService: MediaSessionService() {
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Music playback controls"
+                setShowBadge(false)
             }
 
             val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -96,7 +116,6 @@ class MusicService: MediaSessionService() {
         updateNotification(mediaItem)
     }
 
-    @SuppressLint("MissingPermission")
     private fun updateNotification(mediaItem: MediaItem) {
         val title = mediaItem.mediaMetadata.title?.toString() ?: "Unknown"
         val artist = mediaItem.mediaMetadata.artist?.toString() ?: "Unknown"
@@ -116,13 +135,22 @@ class MusicService: MediaSessionService() {
             } else null
 
             val notification = buildNotification(title, artist, artwork)
-            NotificationManagerCompat.from(this@MusicService).apply {
-                notify(currentNotificationId, notification)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ActivityCompat.checkSelfPermission(
+                        this@MusicService,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED) {
+                    NotificationManagerCompat.from(this@MusicService)
+                        .notify(currentNotificationId, notification)
+                }
+            } else {
+                NotificationManagerCompat.from(this@MusicService)
+                    .notify(currentNotificationId, notification)
             }
         }
     }
 
-    @OptIn(UnstableApi::class)
     private fun buildNotification(
         title: String,
         artist: String,
@@ -143,6 +171,8 @@ class MusicService: MediaSessionService() {
             .setDeleteIntent(getStopIntent())
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
+            .setAutoCancel(false)
+            .setOngoing(player.isPlaying)
             .addAction(
                 R.drawable.ic_skip_previous,
                 "Previous",
@@ -160,7 +190,6 @@ class MusicService: MediaSessionService() {
             )
             .setStyle(
                 androidx.media.app.NotificationCompat.MediaStyle()
-                    .setMediaSession(mediaSession?.sessionCompatToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )
 
@@ -171,7 +200,9 @@ class MusicService: MediaSessionService() {
         PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -179,7 +210,7 @@ class MusicService: MediaSessionService() {
         PendingIntent.getBroadcast(
             this,
             0,
-            Intent(ACTION_PLAY_PAUSE),
+            Intent(ACTION_PLAY_PAUSE).setPackage(packageName),
             PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -187,7 +218,7 @@ class MusicService: MediaSessionService() {
         PendingIntent.getBroadcast(
             this,
             0,
-            Intent(ACTION_PREVIOUS),
+            Intent(ACTION_PREVIOUS).setPackage(packageName),
             PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -195,7 +226,7 @@ class MusicService: MediaSessionService() {
         PendingIntent.getBroadcast(
             this,
             0,
-            Intent(ACTION_NEXT),
+            Intent(ACTION_NEXT).setPackage(packageName),
             PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -203,7 +234,7 @@ class MusicService: MediaSessionService() {
         PendingIntent.getBroadcast(
             this,
             0,
-            Intent(ACTION_STOP),
+            Intent(ACTION_STOP).setPackage(packageName),
             PendingIntent.FLAG_IMMUTABLE
         )
 

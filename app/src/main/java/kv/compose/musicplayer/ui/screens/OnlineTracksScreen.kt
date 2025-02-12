@@ -120,7 +120,7 @@ private fun LoadingIndicatorPreview() {
 }
 
 @Composable
-private fun LoadingIndicator() {
+fun LoadingIndicator() {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -219,7 +219,7 @@ private fun ErrorMessagePreview() {
 }
 
 @Composable
-private fun ErrorMessage(message: String, onRetry: () -> Unit) {
+fun ErrorMessage(message: String, onRetry: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
