@@ -83,7 +83,7 @@ fun PlayerScreen(
                 )
 
                 is PlayerUiState.Error -> ErrorMessage(state.message) {
-                    viewModel.loadTrack()
+
                 }
             }
         }
