@@ -1,6 +1,7 @@
 package kv.compose.musicplayer.di
 
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -33,6 +34,7 @@ object PlayerModule {
         .setTrackSelector(trackSelector)
         .build()
 
+    @OptIn(UnstableApi::class)
     @Provides
     @Singleton
     fun provideAudioAttributes(): AudioAttributes = AudioAttributes.Builder()
@@ -40,12 +42,15 @@ object PlayerModule {
         .setUsage(C.USAGE_MEDIA)
         .build()
 
-    @UnstableApi
+    @OptIn(UnstableApi::class)
     @Provides
     @Singleton
     fun provideTrackSelector(@ApplicationContext context: Context): DefaultTrackSelector =
         DefaultTrackSelector(context).apply {
-            setParameters(buildUponParameters().setMaxAudioBitrate(Int.MAX_VALUE))
+            setParameters(
+                buildUponParameters()
+                    .setMaxAudioBitrate(Int.MAX_VALUE)
+            )
         }
 
     @Provides

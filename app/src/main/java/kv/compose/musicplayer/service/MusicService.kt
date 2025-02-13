@@ -1,33 +1,21 @@
 package kv.compose.musicplayer.service
 
-import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.graphics.Bitmap
+import android.content.IntentFilter
 import android.os.Build
-import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.graphics.drawable.toBitmap
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import coil.ImageLoader
-import coil.request.ImageRequest
-import coil.request.SuccessResult
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kv.compose.musicplayer.MainActivity
-import kv.compose.musicplayer.R
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -37,13 +25,13 @@ class MusicService : MediaSessionService() {
     lateinit var player: ExoPlayer
 
     @Inject
-    lateinit var imageLoader: ImageLoader
+    lateinit var notificationManager: PlayerNotificationManager
 
     private var mediaSession: MediaSession? = null
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
-    private var currentNotificationId = NOTIFICATION_ID
     private var isForegroundService = false
+    private lateinit var mediaControlReceiver: MediaControlReceiver
 
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -51,40 +39,86 @@ class MusicService : MediaSessionService() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            updatePlaybackState()
-            if (isPlaying && !isForegroundService) {
-                startForeground(NOTIFICATION_ID, buildNotification("", "", null))
-                isForegroundService = true
+            if (isPlaying) {
+                startForegroundService()
             }
+            updatePlaybackState()
         }
 
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            when (playbackState) {
+        override fun onPlaybackStateChanged(state: Int) {
+            when (state) {
                 Player.STATE_ENDED -> {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     isForegroundService = false
                 }
                 Player.STATE_READY -> {
+                    startForegroundService()
                     updatePlaybackState()
                 }
             }
         }
     }
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
 
         mediaSession = MediaSession.Builder(this, player)
-            .setSessionActivity(getMainActivityPendingIntent())
+            .setSessionActivity(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    Intent(this, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    },
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
             .build()
 
+        notificationManager.setMediaSession(mediaSession!!)
         player.addListener(playerListener)
+
+        // Register broadcast receiver
+        mediaControlReceiver = MediaControlReceiver()
+        val intentFilter = IntentFilter().apply {
+            addAction(ACTION_PLAY_PAUSE)
+            addAction(ACTION_NEXT)
+            addAction(ACTION_PREVIOUS)
+            addAction(ACTION_STOP)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                mediaControlReceiver,
+                intentFilter,
+                RECEIVER_EXPORTED
+            )
+        } else {
+            registerReceiver(mediaControlReceiver, intentFilter)
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        startForegroundService()
+        return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        stopSelf()
+    }
+
     override fun onDestroy() {
+        try {
+            unregisterReceiver(mediaControlReceiver)
+        } catch (e: Exception) {
+            // Ignore if receiver is not registered
+        }
+
         mediaSession?.run {
             player.removeListener(playerListener)
             player.release()
@@ -95,19 +129,11 @@ class MusicService : MediaSessionService() {
         super.onDestroy()
     }
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Music Playback",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Music playback controls"
-                setShowBadge(false)
-            }
-
-            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+    private fun startForegroundService() {
+        if (!isForegroundService) {
+            val notification = createEmptyNotification()
+            startForeground(NOTIFICATION_ID, notification)
+            isForegroundService = true
         }
     }
 
@@ -119,128 +145,31 @@ class MusicService : MediaSessionService() {
     private fun updateNotification(mediaItem: MediaItem) {
         val title = mediaItem.mediaMetadata.title?.toString() ?: "Unknown"
         val artist = mediaItem.mediaMetadata.artist?.toString() ?: "Unknown"
-        val artworkUri = mediaItem.mediaMetadata.artworkUri
+        val artworkUrl = mediaItem.mediaMetadata.artworkUri?.toString()
 
-        serviceScope.launch {
-            val artwork = if (artworkUri != null) {
-                try {
-                    val request = ImageRequest.Builder(this@MusicService)
-                        .data(artworkUri)
-                        .build()
-                    val result = imageLoader.execute(request)
-                    (result as? SuccessResult)?.drawable?.toBitmap()
-                } catch (e: Exception) {
-                    null
-                }
-            } else null
+        val notification = notificationManager.buildNotification(
+            title = title,
+            artist = artist,
+            isPlaying = player.isPlaying,
+            artworkUrl = artworkUrl,
+            scope = serviceScope
+        )
 
-            val notification = buildNotification(title, artist, artwork)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                if (ActivityCompat.checkSelfPermission(
-                        this@MusicService,
-                        Manifest.permission.POST_NOTIFICATIONS
-                    ) == PackageManager.PERMISSION_GRANTED) {
-                    NotificationManagerCompat.from(this@MusicService)
-                        .notify(currentNotificationId, notification)
-                }
-            } else {
-                NotificationManagerCompat.from(this@MusicService)
-                    .notify(currentNotificationId, notification)
-            }
-        }
+        notificationManager.updateNotification(notification)
     }
 
-    private fun buildNotification(
-        title: String,
-        artist: String,
-        artwork: Bitmap?
-    ): Notification {
-        val playPauseIcon = if (player.isPlaying) {
-            R.drawable.ic_pause
-        } else {
-            R.drawable.ic_play
-        }
-
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_music_note)
-            .setContentTitle(title)
-            .setContentText(artist)
-            .setLargeIcon(artwork)
-            .setContentIntent(getMainActivityPendingIntent())
-            .setDeleteIntent(getStopIntent())
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOnlyAlertOnce(true)
-            .setAutoCancel(false)
-            .setOngoing(player.isPlaying)
-            .addAction(
-                R.drawable.ic_skip_previous,
-                "Previous",
-                getPreviousIntent()
-            )
-            .addAction(
-                playPauseIcon,
-                "Play/Pause",
-                getPlayPauseIntent()
-            )
-            .addAction(
-                R.drawable.ic_skip_next,
-                "Next",
-                getNextIntent()
-            )
-            .setStyle(
-                androidx.media.app.NotificationCompat.MediaStyle()
-                    .setShowActionsInCompactView(0, 1, 2)
-            )
-
-        return builder.build()
+    private fun createEmptyNotification(): Notification {
+        return notificationManager.buildNotification(
+            title = "Loading...",
+            artist = "",
+            isPlaying = player.isPlaying,
+            artworkUrl = null,
+            scope = serviceScope
+        )
     }
-
-    private fun getMainActivityPendingIntent(): PendingIntent =
-        PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-    private fun getPlayPauseIntent(): PendingIntent =
-        PendingIntent.getBroadcast(
-            this,
-            0,
-            Intent(ACTION_PLAY_PAUSE).setPackage(packageName),
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-    private fun getPreviousIntent(): PendingIntent =
-        PendingIntent.getBroadcast(
-            this,
-            0,
-            Intent(ACTION_PREVIOUS).setPackage(packageName),
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-    private fun getNextIntent(): PendingIntent =
-        PendingIntent.getBroadcast(
-            this,
-            0,
-            Intent(ACTION_NEXT).setPackage(packageName),
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-    private fun getStopIntent(): PendingIntent =
-        PendingIntent.getBroadcast(
-            this,
-            0,
-            Intent(ACTION_STOP).setPackage(packageName),
-            PendingIntent.FLAG_IMMUTABLE
-        )
 
     companion object {
-        private const val CHANNEL_ID = "music_playback_channel"
-        private const val NOTIFICATION_ID = 1
+        const val NOTIFICATION_ID = 1
         const val ACTION_PLAY_PAUSE = "kv.compose.musicplayer.PLAY_PAUSE"
         const val ACTION_NEXT = "kv.compose.musicplayer.NEXT"
         const val ACTION_PREVIOUS = "kv.compose.musicplayer.PREVIOUS"

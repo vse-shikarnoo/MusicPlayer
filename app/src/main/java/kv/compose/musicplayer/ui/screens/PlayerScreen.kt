@@ -78,7 +78,11 @@ fun PlayerScreen(
                     track = state.track,
                     isPlaying = playbackState.isPlaying,
                     progress = playbackState.progress,
+                    currentPosition = playbackState.currentPosition,
+                    duration = playbackState.duration,
                     onPlayPauseClick = viewModel::onPlayPauseClick,
+                    onPreviousClick = viewModel::playPreviousTrack,
+                    onNextClick = viewModel::playNextTrack,
                     onSeekTo = viewModel::onSeekTo
                 )
 
@@ -95,7 +99,11 @@ private fun PlayerContent(
     track: Track,
     isPlaying: Boolean,
     progress: Float,
+    currentPosition: Long,
+    duration: Long,
     onPlayPauseClick: () -> Unit,
+    onPreviousClick: () -> Unit,
+    onNextClick: () -> Unit,
     onSeekTo: (Float) -> Unit
 ) {
     Column(
@@ -106,7 +114,7 @@ private fun PlayerContent(
     ) {
         // Album Art
         AsyncImage(
-            model = track.album.coverBig,
+            model = track.album.cover,
             contentDescription = "Album cover",
             modifier = Modifier
                 .size(300.dp)
@@ -145,11 +153,11 @@ private fun PlayerContent(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = formatDuration((progress * track.duration * 1000).toLong()),
+                text = formatDuration(currentPosition),
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = formatDuration(track.duration * 1000L),
+                text = formatDuration(duration),
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -162,7 +170,9 @@ private fun PlayerContent(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { /* Previous track */ }) {
+            IconButton(
+                onClick = onPreviousClick,
+                modifier = Modifier.size(48.dp)) {
                 Icon(
                     painterResource(R.drawable.ic_skip_previous),
                     contentDescription = "Previous track",
@@ -176,7 +186,9 @@ private fun PlayerContent(
                     modifier = Modifier.size(64.dp)
                 )
             }
-            IconButton(onClick = { /* Next track */ }) {
+            IconButton(
+                onClick = onNextClick,
+                modifier = Modifier.size(48.dp)) {
                 Icon(
                     painterResource(R.drawable.ic_skip_next),
                     contentDescription = "Next track",

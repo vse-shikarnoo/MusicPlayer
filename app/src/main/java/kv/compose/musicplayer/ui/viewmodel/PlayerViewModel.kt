@@ -23,8 +23,10 @@ class PlayerViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _trackId: String? = savedStateHandle["trackId"]
-    private val trackId: Long = checkNotNull(_trackId?.toLong())
+    private val trackId: Long = _trackId?.toLong()?:-1
     private var progressJob: Job? = null
+    private var tracks: List<Track> = emptyList()
+    private var currentTrackIndex = -1
 
     private val _uiState = MutableStateFlow<PlayerUiState>(PlayerUiState.Loading)
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -43,47 +45,58 @@ class PlayerViewModel @Inject constructor(
         }
 
         override fun onPlaybackStateChanged(state: Int) {
-            if (state == Player.STATE_READY) {
-                _playbackState.value = _playbackState.value.copy(
-                    duration = player.duration
-                )
+            when (state) {
+                Player.STATE_READY -> {
+                    _playbackState.value = _playbackState.value.copy(
+                        duration = player.duration,
+                        currentPosition = player.currentPosition
+                    )
+                    updateProgress()
+                }
+                Player.STATE_ENDED -> {
+                    stopProgressUpdate()
+                    _playbackState.value = _playbackState.value.copy(
+                        progress = 1f,
+                        currentPosition = player.duration
+                    )
+                    playNextTrack()
+                }
             }
-        }
-
-        override fun onPositionDiscontinuity(
-            oldPosition: Player.PositionInfo,
-            newPosition: Player.PositionInfo,
-            reason: Int
-        ) {
-            updateProgress()
         }
     }
 
     init {
         player.addListener(playerListener)
-        loadTrack()
+        loadTracks()
     }
 
-    private fun loadTrack() {
+    private fun loadTracks() {
         viewModelScope.launch {
-            _uiState.value = PlayerUiState.Loading
-            when (val result = repository.getTrack(trackId)) {
+            when (val result = repository.getChartTracks()) {
                 is kv.compose.musicplayer.domain.util.Result.Success -> {
-                    _uiState.value = PlayerUiState.Success(result.data)
-
-                    val mediaItem = MediaItem.Builder()
-                        .setUri(Uri.parse(result.data.preview))
-                        .setMediaId(result.data.id.toString())
-                        .build()
-
-                    player.setMediaItem(mediaItem)
-                    player.prepare()
-                    player.play()
+                    tracks = result.data
+                    currentTrackIndex = tracks.indexOfFirst { it.id == trackId }
+                    if (currentTrackIndex != -1) {
+                        _uiState.value = PlayerUiState.Success(tracks[currentTrackIndex])
+                        prepareAndPlayTrack(tracks[currentTrackIndex])
+                    }
                 }
                 is kv.compose.musicplayer.domain.util.Result.Error -> _uiState.value = PlayerUiState.Error(result.message)
                 is kv.compose.musicplayer.domain.util.Result.Loading -> _uiState.value = PlayerUiState.Loading
             }
         }
+    }
+
+    private fun prepareAndPlayTrack(track: Track) {
+        _uiState.value = PlayerUiState.Success(track)
+        val mediaItem = MediaItem.Builder()
+            .setUri(track.preview)
+            .setMediaId(track.id.toString())
+            .build()
+
+        player.setMediaItem(mediaItem)
+        player.prepare()
+        player.play()
     }
 
     private fun startProgressUpdate() {
@@ -104,7 +117,9 @@ class PlayerViewModel @Inject constructor(
     private fun updateProgress() {
         if (player.duration > 0) {
             _playbackState.value = _playbackState.value.copy(
-                progress = player.currentPosition.toFloat() / player.duration
+                progress = player.currentPosition.toFloat() / player.duration,
+                currentPosition = player.currentPosition,
+                duration = player.duration
             )
         }
     }
@@ -119,6 +134,20 @@ class PlayerViewModel @Inject constructor(
 
     fun onSeekTo(position: Float) {
         player.seekTo((position * player.duration).toLong())
+    }
+
+    fun playNextTrack() {
+        if (currentTrackIndex < tracks.size - 1) {
+            currentTrackIndex++
+            prepareAndPlayTrack(tracks[currentTrackIndex])
+        }
+    }
+
+    fun playPreviousTrack() {
+        if (currentTrackIndex > 0) {
+            currentTrackIndex--
+            prepareAndPlayTrack(tracks[currentTrackIndex])
+        }
     }
 
     override fun onCleared() {
@@ -137,5 +166,6 @@ sealed class PlayerUiState {
 data class PlaybackState(
     val isPlaying: Boolean = false,
     val progress: Float = 0f,
+    val currentPosition: Long = 0L,
     val duration: Long = 0L
 )
