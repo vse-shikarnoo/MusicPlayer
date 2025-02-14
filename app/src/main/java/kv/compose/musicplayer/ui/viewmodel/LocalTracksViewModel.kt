@@ -6,13 +6,15 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kv.compose.musicplayer.data.model.Track
+import kv.compose.musicplayer.data.repository.TrackListRepository
 import kv.compose.musicplayer.domain.repository.MusicRepository
 import kv.compose.musicplayer.domain.util.Result
 import javax.inject.Inject
 
 @HiltViewModel
 class LocalTracksViewModel @Inject constructor(
-    private val repository: MusicRepository
+    private val repository: MusicRepository,
+    private val trackRepository: TrackListRepository
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -47,8 +49,10 @@ class LocalTracksViewModel @Inject constructor(
                                 _uiState.value = LocalTracksUiState.Loading
                             }
 
-                            is Result.Success ->
+                            is Result.Success ->{
                                 _uiState.value = LocalTracksUiState.Success(tracks.data)
+                                trackRepository.updateTracks(tracks.data)
+                            }
                         }
                     }
             } catch (e: Exception) {
@@ -67,13 +71,20 @@ class LocalTracksViewModel @Inject constructor(
                         _uiState.value = LocalTracksUiState.Loading
                     }
 
-                    is Result.Success ->
+                    is Result.Success ->{
                         _uiState.value = LocalTracksUiState.Success(res.data)
+                        trackRepository.updateTracks(res.data)
+                    }
+
                 }
             } catch (e: Exception) {
                 _uiState.value = LocalTracksUiState.Error(e.message ?: "Unknown error")
             }
         }
+    }
+
+    fun setCurrentTrack(newId:Long){
+        trackRepository.setCurrentTrackId(newId)
     }
 }
 

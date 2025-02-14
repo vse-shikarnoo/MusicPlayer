@@ -24,7 +24,7 @@ fun AppNavigation(navController: NavHostController, modifier: Modifier = Modifie
         composable(Screen.LocalTracks.route) {
             LocalTracksScreen(navController)
         }
-        composable(Screen.Player.route + "/{trackId}") {
+        composable(Screen.Player.route) {
             PlayerScreen(navController)
         }
     }

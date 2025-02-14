@@ -32,10 +32,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
+import com.example.musicplayer.ui.viewmodel.PlayerUiState
+import com.example.musicplayer.ui.viewmodel.PlayerViewModel
 import kv.compose.musicplayer.R
 import kv.compose.musicplayer.data.model.Track
-import kv.compose.musicplayer.ui.viewmodel.PlayerUiState
-import kv.compose.musicplayer.ui.viewmodel.PlayerViewModel
 import kotlin.time.Duration.Companion.milliseconds
 
 @Preview
@@ -89,6 +89,8 @@ fun PlayerScreen(
                 is PlayerUiState.Error -> ErrorMessage(state.message) {
 
                 }
+
+                else -> {}
             }
         }
     }

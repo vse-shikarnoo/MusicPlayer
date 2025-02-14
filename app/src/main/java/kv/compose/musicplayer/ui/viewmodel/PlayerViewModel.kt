@@ -1,10 +1,12 @@
-package kv.compose.musicplayer.ui.viewmodel
+package com.example.musicplayer.ui.viewmodel
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
@@ -12,21 +14,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kv.compose.musicplayer.data.model.Track
-import kv.compose.musicplayer.domain.repository.MusicRepository
+import kv.compose.musicplayer.data.repository.TrackListRepository
 import javax.inject.Inject
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
-    private val repository: MusicRepository,
-    private val player: Player,
-    savedStateHandle: SavedStateHandle
+    private val repository: TrackListRepository,
+    private val player: Player
 ) : ViewModel() {
-
-    private val _trackId: String? = savedStateHandle["trackId"]
-    private val trackId: Long = _trackId?.toLong()?:-1
     private var progressJob: Job? = null
-    private var tracks: List<Track> = emptyList()
-    private var currentTrackIndex = -1
 
     private val _uiState = MutableStateFlow<PlayerUiState>(PlayerUiState.Loading)
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -53,6 +49,7 @@ class PlayerViewModel @Inject constructor(
                     )
                     updateProgress()
                 }
+
                 Player.STATE_ENDED -> {
                     stopProgressUpdate()
                     _playbackState.value = _playbackState.value.copy(
@@ -66,32 +63,32 @@ class PlayerViewModel @Inject constructor(
     }
 
     init {
+
+        Log.i("PlayerViewModelLogs", "init: ${repository.getCurrentTrack()}")
         player.addListener(playerListener)
-        loadTracks()
+        prepareAndPlayTrack(repository.getCurrentTrack())
     }
 
-    private fun loadTracks() {
-        viewModelScope.launch {
-            when (val result = repository.getChartTracks()) {
-                is kv.compose.musicplayer.domain.util.Result.Success -> {
-                    tracks = result.data
-                    currentTrackIndex = tracks.indexOfFirst { it.id == trackId }
-                    if (currentTrackIndex != -1) {
-                        _uiState.value = PlayerUiState.Success(tracks[currentTrackIndex])
-                        prepareAndPlayTrack(tracks[currentTrackIndex])
-                    }
-                }
-                is kv.compose.musicplayer.domain.util.Result.Error -> _uiState.value = PlayerUiState.Error(result.message)
-                is kv.compose.musicplayer.domain.util.Result.Loading -> _uiState.value = PlayerUiState.Loading
-            }
-        }
-    }
+
 
     private fun prepareAndPlayTrack(track: Track) {
+
+        Log.i("TAG", "prepareAndPlayTrack: $track")
         _uiState.value = PlayerUiState.Success(track)
+
+        val mediaMetadata = MediaMetadata.Builder()
+            .setTitle(track.title)
+            .setArtist(track.artist.name)
+            .setAlbumTitle(track.album.title)
+            .setArtworkUri(if (track.album.cover.isNotEmpty()) Uri.parse(track.album.cover) else null)
+            .build()
+
+
+
         val mediaItem = MediaItem.Builder()
             .setUri(track.preview)
             .setMediaId(track.id.toString())
+            .setMediaMetadata(mediaMetadata)
             .build()
 
         player.setMediaItem(mediaItem)
@@ -137,17 +134,11 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun playNextTrack() {
-        if (currentTrackIndex < tracks.size - 1) {
-            currentTrackIndex++
-            prepareAndPlayTrack(tracks[currentTrackIndex])
-        }
+        prepareAndPlayTrack(repository.nextTrack())
     }
 
     fun playPreviousTrack() {
-        if (currentTrackIndex > 0) {
-            currentTrackIndex--
-            prepareAndPlayTrack(tracks[currentTrackIndex])
-        }
+        prepareAndPlayTrack(repository.prevTrack())
     }
 
     override fun onCleared() {
@@ -158,7 +149,7 @@ class PlayerViewModel @Inject constructor(
 }
 
 sealed class PlayerUiState {
-    object Loading : PlayerUiState()
+    data object Loading : PlayerUiState()
     data class Success(val track: Track) : PlayerUiState()
     data class Error(val message: String) : PlayerUiState()
 }

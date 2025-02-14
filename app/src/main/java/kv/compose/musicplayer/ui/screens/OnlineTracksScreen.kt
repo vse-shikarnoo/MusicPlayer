@@ -1,5 +1,6 @@
 package kv.compose.musicplayer.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.musicplayer.ui.viewmodel.PlayerViewModel
 import kv.compose.musicplayer.R
 import kv.compose.musicplayer.data.model.Album
 import kv.compose.musicplayer.data.model.Artist
@@ -73,7 +75,9 @@ fun OnlineTracksScreen(
             is OnlineTracksUiState.Success -> TracksList(
                 tracks = state.tracks,
                 onTrackClick = { track ->
-                    navController.navigate(Screen.Player.route + "/${track.id}")
+                    viewModel.setCurrentTrack(track.id)
+                    Log.d("OnlineTracksScreenLogs", "OnlineTracksScreen: ${track.id}")
+                    navController.navigate(Screen.Player.route)
                 }
             )
 

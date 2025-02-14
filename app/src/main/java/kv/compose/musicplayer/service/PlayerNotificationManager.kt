@@ -47,18 +47,18 @@ class PlayerNotificationManager @Inject constructor(
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Music Playback",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Music playback controls"
                 setShowBadge(true)
-                enableLights(true)
-                lightColor = Color.BLUE
-                enableVibration(false)
-                setSound(null, null)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                //enableLights(true)
+                //lightColor = Color.BLUE
+                //enableVibration(false)
+                //setSound(null, null)
+                //lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
 
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager = context.getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
     }
@@ -99,11 +99,6 @@ class PlayerNotificationManager @Inject constructor(
                 )
             )
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOnlyAlertOnce(true)
-            .setAutoCancel(false)
-            .setOngoing(isPlaying)
-            .setShowWhen(false)
-            .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .addAction(
                 R.drawable.ic_skip_previous,

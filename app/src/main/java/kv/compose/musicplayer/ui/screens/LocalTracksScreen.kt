@@ -53,7 +53,8 @@ fun LocalTracksScreen(
             is LocalTracksUiState.Success -> TracksList(
                 tracks = state.tracks,
                 onTrackClick = { track ->
-                    navController.navigate(Screen.Player.route + "/${track.id}")
+                    viewModel.setCurrentTrack(track.id)
+                    navController.navigate(Screen.Player.route)
                 }
             )
             is LocalTracksUiState.Error -> ErrorMessage(state.message)
