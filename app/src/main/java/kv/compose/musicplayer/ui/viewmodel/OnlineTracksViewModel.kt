@@ -1,5 +1,6 @@
 package kv.compose.musicplayer.ui.viewmodel
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +25,8 @@ class OnlineTracksViewModel @Inject constructor(
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private var currentTracks = mutableStateOf<List<Track>>(emptyList())
 
     init {
         loadChartTracks()
@@ -51,6 +54,7 @@ class OnlineTracksViewModel @Inject constructor(
                     is Result.Success ->{
                         _uiState.value = OnlineTracksUiState.Success(res.data)
                         trackRepository.updateTracks(res.data)
+                        currentTracks.value = res.data
                     }
                 }
             } catch (e: Exception) {
@@ -72,6 +76,7 @@ class OnlineTracksViewModel @Inject constructor(
                     is Result.Success ->{
                         _uiState.value = OnlineTracksUiState.Success(res.data)
                         trackRepository.updateTracks(res.data)
+                        currentTracks.value = res.data
                     }
                 }
             } catch (e: Exception) {
@@ -82,6 +87,7 @@ class OnlineTracksViewModel @Inject constructor(
 
 
     fun setCurrentTrack(newId:Long){
+        trackRepository.updateTracks(currentTracks.value)
         trackRepository.setCurrentTrackId(newId)
     }
 }

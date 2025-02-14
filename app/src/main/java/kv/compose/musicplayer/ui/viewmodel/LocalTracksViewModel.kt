@@ -1,5 +1,6 @@
 package kv.compose.musicplayer.ui.viewmodel
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +23,8 @@ class LocalTracksViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<LocalTracksUiState>(LocalTracksUiState.Loading)
     val uiState: StateFlow<LocalTracksUiState> = _uiState.asStateFlow()
+
+    private var currentTracks = mutableStateOf<List<Track>>(emptyList())
 
     init {
         loadLocalTracks()
@@ -52,6 +55,7 @@ class LocalTracksViewModel @Inject constructor(
                             is Result.Success ->{
                                 _uiState.value = LocalTracksUiState.Success(tracks.data)
                                 trackRepository.updateTracks(tracks.data)
+                                currentTracks.value = tracks.data
                             }
                         }
                     }
@@ -74,6 +78,7 @@ class LocalTracksViewModel @Inject constructor(
                     is Result.Success ->{
                         _uiState.value = LocalTracksUiState.Success(res.data)
                         trackRepository.updateTracks(res.data)
+                        currentTracks.value = res.data
                     }
 
                 }
@@ -84,6 +89,7 @@ class LocalTracksViewModel @Inject constructor(
     }
 
     fun setCurrentTrack(newId:Long){
+        trackRepository.updateTracks(currentTracks.value)
         trackRepository.setCurrentTrackId(newId)
     }
 }
