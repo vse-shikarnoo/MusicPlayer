@@ -1,7 +1,12 @@
 package com.example.musicplayer.ui.viewmodel
 
+import android.app.Application
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,13 +20,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kv.compose.musicplayer.data.model.Track
 import kv.compose.musicplayer.data.repository.TrackListRepository
+import kv.compose.musicplayer.service.MusicService
 import javax.inject.Inject
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val repository: TrackListRepository,
-    private val player: Player
-) : ViewModel() {
+    private val player: Player,
+    private val application: Application
+) : AndroidViewModel(application) {
     private var progressJob: Job? = null
 
     private val _uiState = MutableStateFlow<PlayerUiState>(PlayerUiState.Loading)
@@ -32,6 +39,7 @@ class PlayerViewModel @Inject constructor(
 
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            super.onIsPlayingChanged(isPlaying)
             _playbackState.value = _playbackState.value.copy(isPlaying = isPlaying)
             if (isPlaying) {
                 startProgressUpdate()
@@ -91,9 +99,17 @@ class PlayerViewModel @Inject constructor(
             .setMediaMetadata(mediaMetadata)
             .build()
 
+        startMusicService()
         player.setMediaItem(mediaItem)
         player.prepare()
         player.play()
+    }
+
+    fun startMusicService() {
+        val intent = Intent(application, MusicService::class.java).apply {
+            action = "START_SERVICE"
+        }
+        ContextCompat.startForegroundService(application, intent)
     }
 
     private fun startProgressUpdate() {

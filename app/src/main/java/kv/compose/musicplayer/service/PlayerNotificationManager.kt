@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Context.NOTIFICATION_SERVICE
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -58,12 +59,12 @@ class PlayerNotificationManager @Inject constructor(
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
 
-            val notificationManager = context.getSystemService(NotificationManager::class.java)
+            val notificationManager =
+                context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
     }
 
-    @OptIn(UnstableApi::class)
     fun buildNotification(
         title: String,
         artist: String,
@@ -74,9 +75,7 @@ class PlayerNotificationManager @Inject constructor(
         val playPauseIcon = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
         val pendingIntentFlags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
 
-        val mainIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
+        val mainIntent = Intent(context, MainActivity::class.java)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_music_note)
@@ -140,22 +139,13 @@ class PlayerNotificationManager @Inject constructor(
                     )
                 ).build()
             )
-            .addAction(
-                NotificationCompat.Action.Builder(
-                    R.drawable.baseline_close_24,
-                    "Stop",
-                    PendingIntent.getBroadcast(
-                        context,
-                        4,
-                        Intent(MusicService.ACTION_STOP).setPackage(context.packageName),
-                        pendingIntentFlags
-                    )
-                ).build()
-            )
             .setStyle(
                 androidx.media.app.NotificationCompat.MediaStyle()
-                    .setShowActionsInCompactView(0, 1, 2) // Show previous, play/pause, next in compact view
-                    .setMediaSession(mediaSession?.sessionCompatToken)
+                    .setShowActionsInCompactView(
+                        0,
+                        1,
+                        2
+                    ) // Show previous, play/pause, next in compact view
                     .setShowCancelButton(true)
                     .setCancelButtonIntent(
                         PendingIntent.getBroadcast(
@@ -195,7 +185,8 @@ class PlayerNotificationManager @Inject constructor(
             if (ActivityCompat.checkSelfPermission(
                     context,
                     Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED) {
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
                 NotificationManagerCompat.from(context)
                     .notify(MusicService.NOTIFICATION_ID, notification)
             }

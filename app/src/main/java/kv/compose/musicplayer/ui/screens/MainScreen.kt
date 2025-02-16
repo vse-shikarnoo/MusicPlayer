@@ -30,6 +30,7 @@ fun MainScreen(
         AppNavigation(
             navController, Modifier
                 .padding(it)
+                .padding(vertical = 32.dp)
         )
     }
 }
