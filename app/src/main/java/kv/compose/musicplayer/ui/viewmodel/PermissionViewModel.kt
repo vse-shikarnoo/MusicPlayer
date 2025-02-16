@@ -1,5 +1,6 @@
 package kv.compose.musicplayer.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,7 @@ class PermissionViewModel @Inject constructor() : ViewModel() {
     val hasAudioPermission: StateFlow<Boolean> = _hasAudioPermission.asStateFlow()
 
     fun updatePermissionStatus(hasPermission: Boolean) {
+        Log.i("Permission", "updatePermissionStatus: $hasPermission")
         _hasAudioPermission.value = hasPermission
     }
 }

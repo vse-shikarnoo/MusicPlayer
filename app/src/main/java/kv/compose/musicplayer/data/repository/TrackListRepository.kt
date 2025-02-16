@@ -1,6 +1,5 @@
 package kv.compose.musicplayer.data.repository
 
-import dagger.Provides
 import kv.compose.musicplayer.data.model.Track
 import javax.inject.Inject
 import javax.inject.Singleton

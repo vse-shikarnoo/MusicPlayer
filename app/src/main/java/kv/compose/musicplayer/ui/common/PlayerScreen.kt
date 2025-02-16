@@ -1,26 +1,18 @@
-package kv.compose.musicplayer.ui.screens
+package kv.compose.musicplayer.ui.common
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Slider
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -28,12 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
-import com.example.musicplayer.ui.viewmodel.PlayerUiState
-import com.example.musicplayer.ui.viewmodel.PlayerViewModel
 import kv.compose.musicplayer.R
 import kv.compose.musicplayer.data.model.Track
 import kotlin.time.Duration.Companion.milliseconds
@@ -42,62 +29,19 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun PlayerScreenPreview() {
     PlayerScreen(
-        rememberNavController()
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun PlayerScreen(
-    navController: NavController,
-    viewModel: PlayerViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Now Playing") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            when (val state = uiState) {
-                is PlayerUiState.Loading -> LoadingIndicator()
-                is PlayerUiState.Success -> PlayerContent(
-                    track = state.track,
-                    isPlaying = playbackState.isPlaying,
-                    progress = playbackState.progress,
-                    currentPosition = playbackState.currentPosition,
-                    duration = playbackState.duration,
-                    onPlayPauseClick = viewModel::onPlayPauseClick,
-                    onPreviousClick = viewModel::playPreviousTrack,
-                    onNextClick = viewModel::playNextTrack,
-                    onSeekTo = viewModel::onSeekTo
-                )
-
-                is PlayerUiState.Error -> ErrorMessage(state.message) {
-
-                }
-
-                else -> {}
-            }
-        }
-    }
 }
 
+
 @Composable
-private fun PlayerContent(
+fun PlayerContent(
     track: Track,
     isPlaying: Boolean,
     progress: Float,
@@ -106,12 +50,14 @@ private fun PlayerContent(
     onPlayPauseClick: () -> Unit,
     onPreviousClick: () -> Unit,
     onNextClick: () -> Unit,
-    onSeekTo: (Float) -> Unit
+    onSeekTo: (Float) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(16.dp)
+            .padding(top = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Album Art
@@ -127,14 +73,15 @@ private fun PlayerContent(
         // Track Info
         Text(
             text = track.title,
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.h2,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 8.dp),
+            maxLines = 1
         )
         Text(
             text = track.artist.name,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.h4,
+            color = MaterialTheme.colors.onSurface,
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
@@ -156,11 +103,11 @@ private fun PlayerContent(
         ) {
             Text(
                 text = formatDuration(currentPosition),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.body1
             )
             Text(
                 text = formatDuration(duration),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.body1
             )
         }
 
@@ -174,7 +121,8 @@ private fun PlayerContent(
         ) {
             IconButton(
                 onClick = onPreviousClick,
-                modifier = Modifier.size(48.dp)) {
+                modifier = Modifier.size(48.dp)
+            ) {
                 Icon(
                     painterResource(R.drawable.ic_skip_previous),
                     contentDescription = "Previous track",
@@ -190,7 +138,8 @@ private fun PlayerContent(
             }
             IconButton(
                 onClick = onNextClick,
-                modifier = Modifier.size(48.dp)) {
+                modifier = Modifier.size(48.dp)
+            ) {
                 Icon(
                     painterResource(R.drawable.ic_skip_next),
                     contentDescription = "Next track",

@@ -9,23 +9,19 @@ import androidx.navigation.compose.composable
 import kv.compose.musicplayer.R
 import kv.compose.musicplayer.ui.screens.LocalTracksScreen
 import kv.compose.musicplayer.ui.screens.OnlineTracksScreen
-import kv.compose.musicplayer.ui.screens.PlayerScreen
 
 
 @Composable
-fun AppNavigation(navController: NavHostController, modifier: Modifier = Modifier) {
+fun AppNavigation(navController: NavHostController, modifier: Modifier = Modifier, expandPlayer: ()->Unit) {
     NavHost(
         navController = navController,
         startDestination = Screen.OnlineTracks.route
     ) {
         composable(Screen.OnlineTracks.route) {
-            OnlineTracksScreen(navController)
+            OnlineTracksScreen(modifier, navController,expandPlayer)
         }
         composable(Screen.LocalTracks.route) {
-            LocalTracksScreen(navController)
-        }
-        composable(Screen.Player.route) {
-            PlayerScreen(navController)
+            LocalTracksScreen(modifier,navController,expandPlayer)
         }
     }
 }
@@ -42,5 +38,4 @@ sealed class Screen(
 ) {
     data object OnlineTracks : Screen("online_tracks", "Online")
     data object LocalTracks : Screen("local_tracks", "Local", R.drawable.baseline_audio_file_24)
-    data object Player : Screen("player")
 }

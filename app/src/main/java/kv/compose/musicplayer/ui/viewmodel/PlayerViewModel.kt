@@ -1,26 +1,23 @@
 package com.example.musicplayer.ui.viewmodel
 
 import android.app.Application
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kv.compose.musicplayer.data.model.Track
 import kv.compose.musicplayer.data.repository.TrackListRepository
-import kv.compose.musicplayer.service.MusicService
 import javax.inject.Inject
 
 @HiltViewModel
@@ -71,15 +68,12 @@ class PlayerViewModel @Inject constructor(
     }
 
     init {
-
-        Log.i("PlayerViewModelLogs", "init: ${repository.getCurrentTrack()}")
         player.addListener(playerListener)
-        prepareAndPlayTrack(repository.getCurrentTrack())
     }
 
 
 
-    private fun prepareAndPlayTrack(track: Track) {
+    fun prepareAndPlayTrack(track: Track = repository.getCurrentTrack()) {
 
         Log.i("TAG", "prepareAndPlayTrack: $track")
         _uiState.value = PlayerUiState.Success(track)
@@ -99,18 +93,11 @@ class PlayerViewModel @Inject constructor(
             .setMediaMetadata(mediaMetadata)
             .build()
 
-        startMusicService()
         player.setMediaItem(mediaItem)
         player.prepare()
         player.play()
     }
 
-    fun startMusicService() {
-        val intent = Intent(application, MusicService::class.java).apply {
-            action = "START_SERVICE"
-        }
-        ContextCompat.startForegroundService(application, intent)
-    }
 
     private fun startProgressUpdate() {
         progressJob?.cancel()
@@ -161,6 +148,8 @@ class PlayerViewModel @Inject constructor(
         super.onCleared()
         stopProgressUpdate()
         player.removeListener(playerListener)
+        //    Очищение ресурсов при уничтожении сервиса.
+
     }
 }
 
